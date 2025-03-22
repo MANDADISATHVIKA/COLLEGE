@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teacher Dashboard</title>
+    <link rel="stylesheet" href="sdstyles.css">
+</head>
+
+<body>
+    <div class="container">
+        <h2>Teacher Dashboard</h2>
+        <div id="teacher-info"></div>
+
+        <h3>Enter Student Marks</h3>
+        <input type="number" id="student-id" placeholder="Student ID">
+        <input type="text" id="subject" placeholder="Subject">
+        <input type="number" id="marks-obtained" placeholder="Marks Obtained">
+        <input type="number" id="total-marks" placeholder="Total Marks">
+        <button onclick="addMarks()">Submit Marks</button>
+
+        <h3>Mark Attendance</h3>
+        <input type="number" id="att-student-id" placeholder="Student ID">
+        <select id="att-status">
+            <option value="Present">Present</option>
+            <option value="Absent">Absent</option>
+            <option value="Late">Late</option>
+        </select>
+        <button onclick="markAttendance()">Submit Attendance</button>
+
+        <p id="message"></p>
+    </div>
+
+    <script>
+        window.onload = function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const teacherId = urlParams.get("id");
+
+            if (!teacherId) {
+                document.getElementById("teacher-info").innerHTML = "<p>Error: Teacher ID not found in URL.</p>";
+                return;
+            }
+
+            fetch(`http://localhost:5000/teacher/${teacherId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        document.getElementById("teacher-info").innerHTML = `<p>${data.error}</p>`;
+                    } else {
+                        document.getElementById("teacher-info").innerHTML = `
+                            <p><strong>Name:</strong> ${data.name}</p>
+                            <p><strong>Email:</strong> ${data.email}</p>
+                            <p><strong>Subject:</strong> ${data.subject}</p>
+                            <p><strong>Schedule:</strong> ${data.schedule || "No schedule available"}</p>
+                        `;
+                    }
+                })
+                .catch(error => console.error("Error:", error));
+        };
+
+        function addMarks() {
+            const teacherId = new URLSearchParams(window.location.search).get("id");
+            const studentId = document.getElementById("student-id").value;
+            const subject = document.getElementById("subject").value;
+            const marksObtained = Number(document.getElementById("marks-obtained").value);
+            const totalMarks = Number(document.getElementById("total-marks").value);
+
+            if (!studentId || !subject || isNaN(marksObtained) || isNaN(totalMarks)) {
+                document.getElementById("message").innerText = "Please fill all fields correctly.";
+                return;
+            }
+
+            fetch("http://localhost:5000/marks", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        teacher_id: teacherId,
+                        student_id: studentId,
+                        subject,
+                        marks_obtained: marksObtained,
+                        total_marks: totalMarks
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById("message").innerText = data.message || data.error;
+                })
+                .catch(error => console.error("Error:", error));
+        }
+
+        function markAttendance() {
+            const teacherId = new URLSearchParams(window.location.search).get("id");
+            const studentId = document.getElementById("att-student-id").value;
+            const status = document.getElementById("att-status").value;
+
+            if (!studentId || !status) {
+                document.getElementById("message").innerText = "Please select a student and status.";
+                return;
+            }
+
+            fetch("http://localhost:5000/attendance", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        teacher_id: teacherId,
+                        student_id: studentId,
+                        status
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById("message").innerText = data.message || data.error;
+                })
+                .catch(error => console.error("Error:", error));
+        }
+    </script>
+</body>
+
+</html>

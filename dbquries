@@ -1,0 +1,139 @@
+-- Students Table
+CREATE TABLE students (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(100) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    department VARCHAR(100),
+    section VARCHAR(10),
+    phone VARCHAR(15),
+    address TEXT
+);
+
+-- Attendance Table
+CREATE TABLE attendance (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    student_id INT,
+    date DATE NOT NULL,
+    status ENUM('Present', 'Absent', 'Late') NOT NULL,
+    FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+);
+
+-- Marks Table with Unique Constraint
+CREATE TABLE marks (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    student_id INT,
+    subject VARCHAR(100) NOT NULL,
+    marks_obtained INT NOT NULL,
+    total_marks INT NOT NULL,
+    exam_type ENUM('Midterm', 'Final', 'Quiz', 'Assignment') NOT NULL,
+    UNIQUE (student_id, subject, exam_type),
+    FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+);
+
+-- Teachers Table
+CREATE TABLE teachers (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(100) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    subject VARCHAR(100) NOT NULL,
+    department VARCHAR(100),
+    phone VARCHAR(15),
+    address TEXT
+);
+
+-- Timetable Table
+CREATE TABLE timetable (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    teacher_id INT,
+    day ENUM('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday') NOT NULL,
+    start_time TIME NOT NULL,
+    end_time TIME NOT NULL,
+    subject VARCHAR(100) NOT NULL,
+    classroom VARCHAR(50),
+    FOREIGN KEY (teacher_id) REFERENCES teachers(id) ON DELETE CASCADE
+);
+
+-- Teacher Actions Log
+CREATE TABLE teacher_actions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    teacher_id INT,
+    student_id INT,
+    action_type ENUM('Attendance', 'Marks') NOT NULL,
+    action_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    details TEXT,
+    FOREIGN KEY (teacher_id) REFERENCES teachers(id) ON DELETE CASCADE,
+    FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+);
+
+-- 🔹 TRIGGER: Log Attendance Updates
+DELIMITER //
+CREATE TRIGGER after_insert_attendance
+AFTER INSERT ON attendance
+FOR EACH ROW
+BEGIN
+    DECLARE t_id INT;
+    
+    -- Find a teacher teaching a subject to this student
+    SELECT t.teacher_id INTO t_id 
+    FROM timetable t
+    JOIN marks m ON t.subject = m.subject
+    WHERE m.student_id = NEW.student_id
+    LIMIT 1;
+
+    -- If teacher is found, log action
+    IF t_id IS NOT NULL THEN
+        INSERT INTO teacher_actions (teacher_id, student_id, action_type, details)
+        VALUES (t_id, NEW.student_id, 'Attendance', CONCAT('Attendance marked as ', NEW.status));
+    END IF;
+END;
+//
+DELIMITER ;
+
+-- 🔹 TRIGGER: Log Marks Updates
+DELIMITER //
+CREATE TRIGGER after_insert_marks
+AFTER INSERT ON marks
+FOR EACH ROW
+BEGIN
+    DECLARE t_id INT;
+    
+    -- Find teacher who teaches the subject
+    SELECT id INTO t_id 
+    FROM teachers 
+    WHERE subject = NEW.subject 
+    LIMIT 1;
+
+    -- If teacher exists, log the action
+    IF t_id IS NOT NULL THEN
+        INSERT INTO teacher_actions (teacher_id, student_id, action_type, details)
+        VALUES (t_id, NEW.student_id, 'Marks', CONCAT('Marks updated: ', NEW.marks_obtained, '/', NEW.total_marks));
+    END IF;
+END;
+//
+DELIMITER ;
+
+-- 🔹 Insert Sample Students
+INSERT INTO students (name, email, password, department, section, phone, address) VALUES
+('sathvika', 'sathvika@example.com', 'password1', 'Computer Science', 'A', '1234567890', '123 Maple St'),
+('abc', 'abc@example.com', 'password2', 'Mechanical Engineering', 'B', '1234567891', '456 Oak St'),
+('def', 'def@example.com', 'password3', 'Electrical Engineering', 'A', '1234567892', '789 Pine St'),
+('ghij', 'ghij@example.com', 'password4', 'Civil Engineering', 'C', '1234567893', '321 Birch St'),
+('klm', 'klm@example.com', 'password5', 'Computer Science', 'B', '1234567894', '654 Cedar St');
+
+-- 🔹 Insert Sample Teachers
+INSERT INTO teachers (name, email, password, subject, department, phone, address) VALUES
+('rrr', 'rrr.m@example.com', 'pass6', 'Mathematics', 'Computer Science', '9876543210', '111 Red St'),
+('sss', 'sss.w@example.com', 'pass7', 'Physics', 'Mechanical Engineering', '9876543211', '222 Blue St'),
+('aaa', 'aaa.a@example.com', 'pass8', 'Computer Science', 'Computer Science', '9876543212', '333 Green St'),
+('sas', 'sas.t@example.com', 'pass9', 'Chemistry', 'Civil Engineering', '9876543213', '444 Yellow St'),
+('yyy', 'yyy.j@example.com', 'pass10', 'Mechanical Design', 'Mechanical Engineering', '9876543214', '555 Purple St');
+
+-- 🔹 Insert Sample Timetable
+INSERT INTO timetable (teacher_id, day, start_time, end_time, subject, classroom) VALUES
+(1, 'Monday', '09:00:00', '10:30:00', 'Mathematics', 'Room 101'),
+(2, 'Tuesday', '11:00:00', '12:30:00', 'Physics', 'Room 202'),
+(3, 'Wednesday', '10:00:00', '11:30:00', 'Computer Science', 'Lab 303'),
+(4, 'Thursday', '13:00:00', '14:30:00', 'Chemistry', 'Room 404'),
+(5, 'Friday', '15:00:00', '16:30:00', 'Mechanical Design', 'Workshop 505');
